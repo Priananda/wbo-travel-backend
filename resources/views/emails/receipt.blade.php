@@ -16,6 +16,7 @@ Terima kasih, kami telah menerima pembayaran Anda.
 
 📅 Tanggal: {{ $order->updated_at->format('d M Y H:i') }}
 
+{{-- Nanti redirect ke order --}}
 @component('mail::button', ['url' => url('/')])
 Lihat Detail Pesanan
 @endcomponent

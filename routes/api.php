@@ -14,7 +14,8 @@ use App\Http\Controllers\Api\{
     OrderController,
     BlogController,
     AdminController,
-    SuperAdminController
+    SuperAdminController,
+    CommentController
 };
 
 // Public Routes
@@ -24,11 +25,25 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::get('/paket-tours', [PaketTourController::class, 'index']);
 Route::get('/paket-tours/{id}', [PaketTourController::class, 'show']);
 
-Route::get('/blogs', [BlogController::class, 'index']);
-Route::get('/blogs/{id}', [BlogController::class, 'show']);
+// Route::get('/blogs', [BlogController::class, 'index']);
+// Route::get('/blogs/{slug}', [BlogController::class, 'show']);
+// // Route::get('/blogs/{id}', [BlogController::class, 'show']);
+// Route::get('/blogs/{id}/comments', [CommentController::class, 'index']);
+// Route::get('/comments', [CommentController::class, 'indexAll']);
 
+// 🔹 Public blog routes
+Route::get('/blogs', [BlogController::class, 'index']);
+Route::get('/blogs/slug/{slug}', [BlogController::class, 'showBySlug']);
+Route::get('/blogs/{id}', [BlogController::class, 'show']); // tetap ada untuk admin/dashboard
+
+// 🔹 Comments
+Route::get('/blogs/{id}/comments', [CommentController::class, 'index']);
+Route::get('/comments', [CommentController::class, 'indexAll']);
 Route::get('/user/pay/{orderCode}', [OrderController::class, 'payWithMidtrans']);
 Route::post('/midtrans/callback', [OrderController::class, 'midtransCallback']);
+
+// Login Via Google
+Route::post('/auth/google', [AuthController::class, 'googleLogin']);
 
 // Sanctum Protected Routes
 Route::middleware('auth:sanctum')->group(function () {
@@ -49,6 +64,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/payment/confirm/{orderCode}', [OrderController::class, 'confirmPayment']);
         Route::get('/my-orders', [OrderController::class, 'myOrders']);
     });
+    //Komentar
+    Route::post('/comments', [CommentController::class, 'store']);
 
     /*
     |--------------------------------------------------------------------------
@@ -65,7 +82,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/paket-tours/{id}', [PaketTourController::class, 'destroy']);
 
         // Blogs
+        // Route::apiResource('blogs', App\Http\Controllers\Api\BlogController::class);
         Route::get('/blogs', [BlogController::class, 'index']);
+        Route::get('/blogs/{id}', [BlogController::class, 'show']);
         Route::post('/blogs', [BlogController::class, 'store']);
         Route::put('/blogs/{id}', [BlogController::class, 'update']);
         Route::delete('/blogs/{id}', [BlogController::class, 'destroy']);

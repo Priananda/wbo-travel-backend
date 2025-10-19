@@ -43,7 +43,6 @@ class OrderController extends Controller
                 return response()->json(['message' => 'Order not found'], 404);
             }
 
-            // Ambil reference VA / QR / payment code
             $paymentReference = $payload['va_numbers'][0]['va_number']
                 ?? $payload['permata_va_number']
                 ?? $payload['bill_key']
@@ -51,7 +50,6 @@ class OrderController extends Controller
                 ?? $payload['qr_string']
                 ?? null;
 
-            // Tentukan status order
             $orderStatus = match ($transaction) {
                 'capture' => ($type == 'credit_card' && $fraud == 'challenge') ? 'deny' : 'settlement',
                 'settlement' => 'settlement',
@@ -62,25 +60,27 @@ class OrderController extends Controller
                 default => $order->status,
             };
 
-            // Update order
             $order->update([
                 'status' => $orderStatus,
                 'payment_reference' => $paymentReference ?? $order->payment_reference,
             ]);
 
-
-
-            // Update atau buat payment
             Payment::updateOrCreate(
                 ['order_id' => $order->id],
                 [
                     'payment_gateway' => 'midtrans',
                     'payment_id' => $payload['transaction_id'] ?? null,
                     'amount' => $payload['gross_amount'] ?? $order->total_price,
-                    'status' => $orderStatus, // gunakan langsung status enum yang sama dengan order
+                    'status' => $orderStatus,
                     'payload' => json_encode($payload),
                 ]
             );
+
+            // Kirim email receipt jika payment berhasil
+            if ($orderStatus === 'settlement') {
+                Mail::to($order->billing_email)->send(new \App\Mail\PaymentReceiptMail($order));
+                Log::info('Payment receipt sent to: ' . $order->billing_email);
+            }
 
             return response()->json(['message' => 'Callback processed successfully']);
         } catch (\Exception $e) {
@@ -88,6 +88,83 @@ class OrderController extends Controller
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
+
+
+
+    // public function midtransCallback(Request $request)
+    // {
+    //     Config::$serverKey = config('midtrans.server_key');
+    //     Config::$isProduction = config('midtrans.is_production');
+    //     Config::$isSanitized = true;
+    //     Config::$is3ds = true;
+
+    //     try {
+    //         Log::info('Midtrans Callback Raw:', ['body' => $request->getContent()]);
+    //         $notif = new \Midtrans\Notification();
+
+    //         $transaction = $notif->transaction_status;
+    //         $type = $notif->payment_type;
+    //         $order_id = $notif->order_id;
+    //         $fraud = $notif->fraud_status ?? null;
+    //         $payload = json_decode($request->getContent(), true);
+
+    //         $order = Order::where('order_code', $order_id)->first();
+    //         if (!$order) {
+    //             Log::error('Order not found', ['order_id' => $order_id]);
+    //             return response()->json(['message' => 'Order not found'], 404);
+    //         }
+
+    //         // Ambil reference VA / QR / payment code
+    //         $paymentReference = $payload['va_numbers'][0]['va_number']
+    //             ?? $payload['permata_va_number']
+    //             ?? $payload['bill_key']
+    //             ?? $payload['payment_code']
+    //             ?? $payload['qr_string']
+    //             ?? null;
+
+    //         // Tentukan status order
+    //         $orderStatus = match ($transaction) {
+    //             'capture' => ($type == 'credit_card' && $fraud == 'challenge') ? 'deny' : 'settlement',
+    //             'settlement' => 'settlement',
+    //             'pending' => 'pending',
+    //             'deny' => 'deny',
+    //             'expire' => 'expire',
+    //             'cancel' => 'cancelled',
+    //             default => $order->status,
+    //         };
+
+    //         // Update order
+    //         $order->update([
+    //             'status' => $orderStatus,
+    //             'payment_reference' => $paymentReference ?? $order->payment_reference,
+    //         ]);
+
+    //         // ✅ Kirim email receipt kalau status = settlement
+    //         if ($orderStatus === 'settlement') {
+    //             Mail::to($order->billing_email)->send(new \App\Mail\PaymentReceiptMail($order));
+    //             Log::info('Payment receipt sent to: ' . $order->billing_email);
+    //         }
+
+
+
+    //         // Update atau buat payment
+    //         Payment::updateOrCreate(
+    //             ['order_id' => $order->id],
+    //             [
+    //                 'payment_gateway' => 'midtrans',
+    //                 'payment_id' => $payload['transaction_id'] ?? null,
+    //                 'amount' => $payload['gross_amount'] ?? $order->total_price,
+    //                 'status' => $orderStatus, // gunakan langsung status enum yang sama dengan order
+    //                 'payload' => json_encode($payload),
+    //             ]
+    //         );
+
+    //         return response()->json(['message' => 'Callback processed successfully']);
+    //     } catch (\Exception $e) {
+    //         Log::error('Midtrans Callback Error:', ['message' => $e->getMessage()]);
+    //         return response()->json(['error' => $e->getMessage()], 500);
+    //     }
+    // }
 
     /**
      * Create Midtrans payment URL

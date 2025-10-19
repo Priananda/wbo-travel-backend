@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use App\Models\User;
-
+use Google\Client as Google_Client;
 class AuthController extends Controller
 {
     // Register
@@ -79,4 +79,43 @@ class AuthController extends Controller
             'message' => 'Logout successful',
         ]);
     }
+
+    // Login Via Google
+
+    // ✅ Login via Google ID Token
+    public function googleLogin(Request $request)
+    {
+        $request->validate(['token' => 'required']);
+
+        $client = new Google_Client(['client_id' => env('GOOGLE_CLIENT_ID')]);
+        $payload = $client->verifyIdToken($request->token);
+
+        if (!$payload) {
+            return response()->json(['error' => 'Invalid Google token'], 401);
+        }
+
+        $googleEmail = $payload['email'];
+        $googleName = $payload['name'];
+        $googleId = $payload['sub'];
+
+        $user = User::firstOrCreate(
+            ['email' => $googleEmail],
+            [
+                'name' => $googleName,
+                'password' => Hash::make($googleId),
+                'role' => 'user',
+            ]
+        );
+
+        $token = $user->createToken('google_login')->plainTextToken;
+
+        return response()->json([
+            'message' => 'Login via Google success',
+            'user' => $user,
+            'token' => $token,
+        ]);
+    }
 }
+
+
+
