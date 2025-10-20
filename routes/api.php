@@ -23,7 +23,8 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
 Route::get('/paket-tours', [PaketTourController::class, 'index']);
-Route::get('/paket-tours/{id}', [PaketTourController::class, 'show']);
+// Route::get('/paket-tours/{id}', [PaketTourController::class, 'show']);
+Route::get('/paket-tours/{slug}', [PaketTourController::class, 'show']);
 
 // Route::get('/blogs', [BlogController::class, 'index']);
 // Route::get('/blogs/{slug}', [BlogController::class, 'show']);
