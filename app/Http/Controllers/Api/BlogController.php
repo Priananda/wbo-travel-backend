@@ -58,7 +58,7 @@ class BlogController extends Controller
             'content' => 'required|string',
             'category' => 'nullable|string',
             'author_email' => 'nullable|email',
-            'image' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+            'image' => 'nullable|image|mimes:jpg,jpeg,png|max:20480',
         ]);
 
         $path = $request->hasFile('image')
@@ -91,7 +91,7 @@ class BlogController extends Controller
             'content' => 'required|string',
             'category' => 'nullable|string',
             'author_email' => 'nullable|email',
-            'image' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+            'image' => 'nullable|image|mimes:jpg,jpeg,png|max:20480',
         ]);
 
         if ($request->hasFile('image')) {

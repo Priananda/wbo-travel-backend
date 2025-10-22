@@ -37,11 +37,12 @@ Route::get('/blogs', [BlogController::class, 'index']);
 Route::get('/blogs/slug/{slug}', [BlogController::class, 'showBySlug']);
 Route::get('/blogs/{id}', [BlogController::class, 'show']); // tetap ada untuk admin/dashboard
 
-// 🔹 Comments
 Route::get('/blogs/{id}/comments', [CommentController::class, 'index']);
 Route::get('/comments', [CommentController::class, 'indexAll']);
-Route::get('/user/pay/{orderCode}', [OrderController::class, 'payWithMidtrans']);
-Route::post('/midtrans/callback', [OrderController::class, 'midtransCallback']);
+// Route::get('/user/pay/{orderCode}', [OrderController::class, 'payWithMidtrans']);
+// Route::post('/midtrans/callback', [OrderController::class, 'midtransCallback']);
+Route::get('/pay-xendit/{orderCode}', [OrderController::class, 'payWithXendit']);
+Route::post('/xendit/callback', [OrderController::class, 'xenditCallback']);
 
 // Login Via Google
 Route::post('/auth/google', [AuthController::class, 'googleLogin']);
@@ -61,6 +62,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/cart', [CartController::class, 'index']);
         Route::delete('/cart/remove/{id}', [CartController::class, 'remove']);
         Route::delete('/cart/clear', [CartController::class, 'clear']);
+        Route::delete('/cart/destroy/{cartId}', [CartController::class, 'destroy']);
         Route::post('/checkout', [OrderController::class, 'checkout']);
         Route::get('/payment/confirm/{orderCode}', [OrderController::class, 'confirmPayment']);
         Route::get('/my-orders', [OrderController::class, 'myOrders']);

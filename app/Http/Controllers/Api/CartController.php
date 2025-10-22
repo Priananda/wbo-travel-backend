@@ -52,4 +52,20 @@ class CartController extends Controller
         Cart::where('user_id', $request->user()->id)->delete();
         return response()->json(['message' => 'Cart cleared']);
     }
+
+    public function destroy($cartId)
+    {
+        $cart = Cart::find($cartId);
+
+        if (!$cart) {
+            return response()->json(['message' => 'Cart item not found'], 404);
+        }
+
+        $cart->delete();
+
+        return response()->json([
+            'message' => 'Cart item permanently deleted',
+            'deleted_id' => $cartId,
+        ]);
+    }
 }

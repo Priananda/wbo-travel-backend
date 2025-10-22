@@ -12,7 +12,8 @@
         "laravel/sanctum": "^3.3",
         "laravel/tinker": "^2.8",
         "midtrans/midtrans-php": "^2.6",
-        "spatie/laravel-permission": "^6.21"
+        "spatie/laravel-permission": "^6.21",
+        "xendit/xendit-php": "2.16"
     },
     "require-dev": {
         "fakerphp/faker": "^1.9.1",
