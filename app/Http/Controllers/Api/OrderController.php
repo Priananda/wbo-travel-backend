@@ -251,14 +251,58 @@ class OrderController extends Controller
     //     return response()->json(['orders' => $data]);
     // }
 
-    public function allOrders()
+    // get data order pada sisi admin
+    // public function allOrders()
+    // {
+    //     $orders = Order::with(['user', 'items.paketTour', 'payment'])
+    //         ->latest()
+    //         ->get();
+
+    //     // Buat data utama order
+    //     $data = $orders->map(function ($order) {
+    //         return [
+    //             'order_code' => $order->order_code,
+    //             'user_name' => $order->user->name ?? '-',
+    //             'user_email' => $order->user->email ?? '-',
+    //             'billing_name' => $order->billing_name,
+    //             'billing_phone' => $order->billing_phone,
+    //             'billing_address' => $order->billing_address,
+    //             'status' => $order->status,
+    //             'total_price' => $order->total_price,
+    //             'payment_status' => $order->payment->status ?? 'pending',
+    //             'created_at' => $order->created_at->format('Y-m-d H:i:s'),
+    //             'items' => $order->items->map(fn($i) => [
+    //                 'paket_title' => $i->paketTour->title ?? '-',
+    //                 'quantity' => $i->quantity,
+    //                 'price' => (float) $i->price,
+    //                 'subtotal' => (float) $i->subtotal,
+    //             ]),
+    //         ];
+    //     });
+
+    //     // 🔹 Hitung total tiap status
+    //     $totalOrders = $orders->count();
+    //     $pending = $orders->where('status', 'pending')->count();
+    //     $paid = $orders->where('status', 'paid')->count();
+    //     $settlement = $orders->where('status', 'settlement')->count();
+
+    //     // 🔹 Return JSON lengkap
+    //     return response()->json([
+    //         'total_orders' => $totalOrders,
+    //         'pending' => $pending,
+    //         'paid' => $paid,
+    //         'settlement' => $settlement,
+    //         'orders' => $data,
+    //     ]);
+    // }
+
+    public function  allOrders()
     {
         $orders = Order::with(['user', 'items.paketTour', 'payment'])
-            ->latest()
-            ->get();
+            ->orderBy('created_at', 'desc')
+            ->paginate(10);
 
-        // Buat data utama order
-        $data = $orders->map(function ($order) {
+        $mappedOrders = $orders->map(function ($order) {
             return [
                 'order_code' => $order->order_code,
                 'user_name' => $order->user->name ?? '-',
@@ -279,19 +323,19 @@ class OrderController extends Controller
             ];
         });
 
-        // 🔹 Hitung total tiap status
-        $totalOrders = $orders->count();
-        $pending = $orders->where('status', 'pending')->count();
-        $paid = $orders->where('status', 'paid')->count();
-        $settlement = $orders->where('status', 'settlement')->count();
-
-        // 🔹 Return JSON lengkap
         return response()->json([
-            'total_orders' => $totalOrders,
-            'pending' => $pending,
-            'paid' => $paid,
-            'settlement' => $settlement,
-            'orders' => $data,
+            'orders' => $mappedOrders,
+            'pagination' => [
+                'current_page' => $orders->currentPage(),
+                'last_page' => $orders->lastPage(),
+                'total' => $orders->total(),
+            ],
+            'summary' => [
+                'total_orders' => Order::count(),
+                'pending' => Order::where('status', 'pending')->count(),
+                'paid' => Order::where('status', 'paid')->count(),
+                'settlement' => Order::where('status', 'settlement')->count(),
+            ],
         ]);
     }
 }
