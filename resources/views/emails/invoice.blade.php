@@ -11,7 +11,7 @@
   <div class="max-w-3xl mx-auto my-10 p-6 bg-white shadow-md rounded-xl">
     <!-- Header -->
     <div class="text-center border-b pb-4 mb-6">
-    <h1 class="text-2xl font-bold text-teal-700 mb-4">Bali Wisata Oke</h1>
+    <h1 class="text-2xl font-bold text-teal-700 mb-4">Wisata Bali Oke</h1>
       <h1 class="text-2xl font-semibold text-teal-700">Invoice Pesanan Anda</h1>
       <p class="text-gray-800 mt-1">Terima kasih telah memesan paket tour kami!</p>
     </div>
@@ -61,7 +61,7 @@
 
     <!-- Footer -->
     <div class="text-center text-sm text-gray-500 mt-10 border-t pt-4">
-      <p>© {{ date('Y') }} Bali Wisata Oke. Semua hak dilindungi.</p>
+      <p>© {{ date('Y') }} Wisata Bali Oke. Semua hak dilindungi.</p>
     </div>
   </div>
 

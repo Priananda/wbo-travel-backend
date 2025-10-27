@@ -128,7 +128,7 @@ class OrderController extends Controller
     }
 
     /**
-     * 🔹 Callback Xendit
+     * 🔹 Callback Xendit untuk singkron notifikasi
      */
     public function xenditCallback(Request $request)
     {
@@ -174,7 +174,7 @@ class OrderController extends Controller
     }
 
     /**
-     * 🔹 Konfirmasi pembayaran manual
+     * 🔹 Konfirmasi pembayaran manual xendit
      */
     public function confirmPayment($orderCode)
     {
@@ -223,15 +223,46 @@ class OrderController extends Controller
     /**
      * 🔹 Semua order (Admin)
      */
+    // public function allOrders()
+    // {
+    //     $orders = Order::with(['user', 'items.paketTour', 'payment'])->latest()->get();
+
+    //     $data = $orders->map(function ($order) {
+    //         return [
+    //             'order_code' => $order->order_code,
+    //             'user_name' => $order->user->name,
+    //             'user_email' => $order->user->email,
+    //             'billing_name' => $order->billing_name,
+    //             'billing_phone' => $order->billing_phone,
+    //             'billing_address' => $order->billing_address,
+    //             'status' => $order->status,
+    //             'total_price' => $order->total_price,
+    //             'payment_status' => $order->payment->status ?? 'pending',
+    //             'created_at' => $order->created_at->format('Y-m-d H:i:s'),
+    //             'items' => $order->items->map(fn($i) => [
+    //                 'paket_title' => $i->paketTour->title,
+    //                 'quantity' => $i->quantity,
+    //                 'price' => (float) $i->price,
+    //                 'subtotal' => (float) $i->subtotal,
+    //             ]),
+    //         ];
+    //     });
+
+    //     return response()->json(['orders' => $data]);
+    // }
+
     public function allOrders()
     {
-        $orders = Order::with(['user', 'items.paketTour', 'payment'])->latest()->get();
+        $orders = Order::with(['user', 'items.paketTour', 'payment'])
+            ->latest()
+            ->get();
 
+        // Buat data utama order
         $data = $orders->map(function ($order) {
             return [
                 'order_code' => $order->order_code,
-                'user_name' => $order->user->name,
-                'user_email' => $order->user->email,
+                'user_name' => $order->user->name ?? '-',
+                'user_email' => $order->user->email ?? '-',
                 'billing_name' => $order->billing_name,
                 'billing_phone' => $order->billing_phone,
                 'billing_address' => $order->billing_address,
@@ -240,7 +271,7 @@ class OrderController extends Controller
                 'payment_status' => $order->payment->status ?? 'pending',
                 'created_at' => $order->created_at->format('Y-m-d H:i:s'),
                 'items' => $order->items->map(fn($i) => [
-                    'paket_title' => $i->paketTour->title,
+                    'paket_title' => $i->paketTour->title ?? '-',
                     'quantity' => $i->quantity,
                     'price' => (float) $i->price,
                     'subtotal' => (float) $i->subtotal,
@@ -248,6 +279,19 @@ class OrderController extends Controller
             ];
         });
 
-        return response()->json(['orders' => $data]);
+        // 🔹 Hitung total tiap status
+        $totalOrders = $orders->count();
+        $pending = $orders->where('status', 'pending')->count();
+        $paid = $orders->where('status', 'paid')->count();
+        $settlement = $orders->where('status', 'settlement')->count();
+
+        // 🔹 Return JSON lengkap
+        return response()->json([
+            'total_orders' => $totalOrders,
+            'pending' => $pending,
+            'paid' => $paid,
+            'settlement' => $settlement,
+            'orders' => $data,
+        ]);
     }
 }

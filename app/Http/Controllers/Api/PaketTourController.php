@@ -32,10 +32,10 @@ class PaketTourController extends Controller
         // Sorting
         switch ($sort) {
             case 'popularity':
-                $query->orderBy('views', 'desc'); // Kalau ada field views
+                $query->orderBy('views', 'desc');
                 break;
             case 'rating':
-                $query->orderBy('rating', 'desc'); // Kalau ada field rating
+                $query->orderBy('rating', 'desc');
                 break;
             case 'latest':
                 $query->orderBy('created_at', 'desc');

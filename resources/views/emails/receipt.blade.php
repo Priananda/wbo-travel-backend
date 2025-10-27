@@ -11,7 +11,7 @@
   <div class="max-w-3xl mx-auto my-10 p-6 bg-white shadow-md rounded-xl">
     <!-- Header -->
     <div class="text-center border-b pb-4 mb-6">
-      <h1 class="text-2xl font-bold text-teal-700 mb-2">Bali Wisata Oke</h1>
+      <h1 class="text-2xl font-bold text-teal-700 mb-2">Wisata Bali Oke</h1>
       <h2 class="text-xl font-semibold text-teal-700">Tanda Terima Pembayaran</h2>
       <p class="text-gray-800 mt-1">Terima kasih, kami telah menerima pembayaran Anda.</p>
     </div>
@@ -66,7 +66,7 @@
     <!-- Footer -->
     <div class="text-center text-sm text-gray-500 mt-10 border-t pt-4">
       <p>Terima kasih telah mempercayai <span class="font-semibold text-teal-700">Bali Wisata Oke</span>.</p>
-      <p>© {{ date('Y') }} Bali Wisata Oke. Semua hak dilindungi.</p>
+      <p>© {{ date('Y') }} Wisata Bali Oke. Semua hak dilindungi.</p>
     </div>
   </div>
 

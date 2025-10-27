@@ -66,9 +66,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/checkout', [OrderController::class, 'checkout']);
         Route::get('/payment/confirm/{orderCode}', [OrderController::class, 'confirmPayment']);
         Route::get('/my-orders', [OrderController::class, 'myOrders']);
+
+        Route::post('/comments', [CommentController::class, 'store']);
     });
+
+
     //Komentar
-    Route::post('/comments', [CommentController::class, 'store']);
+
 
     /*
     |--------------------------------------------------------------------------
@@ -94,6 +98,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Orders
         Route::get('/orders', [OrderController::class, 'allOrders']);
+        Route::delete('/comments/{id}', [CommentController::class, 'destroy']);
     });
 
 

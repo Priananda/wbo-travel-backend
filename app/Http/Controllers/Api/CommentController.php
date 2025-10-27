@@ -63,4 +63,31 @@ class CommentController extends Controller
             'data' => $comment->load('user:id,name,email'),
         ], 201);
     }
+
+    public function destroy($id)
+    {
+        $comment = Comment::find($id);
+
+        if (!$comment) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Komentar tidak ditemukan'
+            ], 404);
+        }
+
+        // Kurangi jumlah komentar di blog terkait
+        if ($comment->blog_id) {
+            $blog = Blog::find($comment->blog_id);
+            if ($blog && $blog->comments_count > 0) {
+                $blog->decrement('comments_count');
+            }
+        }
+
+        $comment->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Komentar berhasil dihapus'
+        ]);
+    }
 }
