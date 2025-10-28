@@ -12,126 +12,19 @@ use App\Models\OrderItem;
 use App\Models\Cart;
 use App\Models\Payment;
 use App\Mail\OrderInvoiceMail;
-use Midtrans\Snap;
-use Midtrans\Config;
-
+use App\Mail\PaymentReceiptMail;
+use Xendit\Xendit;
+use Xendit\Invoice;
 class OrderController extends Controller
 {
-    /**
-     * Handle Midtrans callback (notifikasi status pembayaran)
-     */
-    public function midtransCallback(Request $request)
+    public function __construct()
     {
-        Config::$serverKey = config('midtrans.server_key');
-        Config::$isProduction = config('midtrans.is_production');
-        Config::$isSanitized = true;
-        Config::$is3ds = true;
-
-        try {
-            Log::info('Midtrans Callback Raw:', ['body' => $request->getContent()]);
-            $notif = new \Midtrans\Notification();
-
-            $transaction = $notif->transaction_status;
-            $type = $notif->payment_type;
-            $order_id = $notif->order_id;
-            $fraud = $notif->fraud_status ?? null;
-            $payload = json_decode($request->getContent(), true);
-
-            $order = Order::where('order_code', $order_id)->first();
-            if (!$order) {
-                Log::error('Order not found', ['order_id' => $order_id]);
-                return response()->json(['message' => 'Order not found'], 404);
-            }
-
-            // Ambil reference VA / QR / payment code
-            $paymentReference = $payload['va_numbers'][0]['va_number']
-                ?? $payload['permata_va_number']
-                ?? $payload['bill_key']
-                ?? $payload['payment_code']
-                ?? $payload['qr_string']
-                ?? null;
-
-            // Tentukan status order
-            $orderStatus = match ($transaction) {
-                'capture' => ($type == 'credit_card' && $fraud == 'challenge') ? 'deny' : 'settlement',
-                'settlement' => 'settlement',
-                'pending' => 'pending',
-                'deny' => 'deny',
-                'expire' => 'expire',
-                'cancel' => 'cancelled',
-                default => $order->status,
-            };
-
-            // Update order
-            $order->update([
-                'status' => $orderStatus,
-                'payment_reference' => $paymentReference ?? $order->payment_reference,
-            ]);
-
-
-
-            // Update atau buat payment
-            Payment::updateOrCreate(
-                ['order_id' => $order->id],
-                [
-                    'payment_gateway' => 'midtrans',
-                    'payment_id' => $payload['transaction_id'] ?? null,
-                    'amount' => $payload['gross_amount'] ?? $order->total_price,
-                    'status' => $orderStatus, // gunakan langsung status enum yang sama dengan order
-                    'payload' => json_encode($payload),
-                ]
-            );
-
-            return response()->json(['message' => 'Callback processed successfully']);
-        } catch (\Exception $e) {
-            Log::error('Midtrans Callback Error:', ['message' => $e->getMessage()]);
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
+        // gunakan test mode Xendit
+        Xendit::setApiKey(config('services.xendit.secret_key'));
     }
 
     /**
-     * Create Midtrans payment URL
-     */
-    public function payWithMidtrans($orderCode)
-    {
-        $order = Order::with('user')->where('order_code', $orderCode)->firstOrFail();
-
-        Config::$serverKey = config('midtrans.server_key');
-        Config::$isProduction = false;
-
-        $methodMap = [
-            'midtrans_bca' => ['bca_va'],
-            'midtrans_qris' => ['qris'],
-            'midtrans_bni' => ['bni_va'],
-        ];
-
-        $enabledPayments = $methodMap[$order->payment_method] ?? null;
-
-        $params = [
-            'transaction_details' => [
-                'order_id' => $order->order_code,
-                'gross_amount' => $order->total_price,
-            ],
-            'customer_details' => [
-                'first_name' => $order->billing_name ?? $order->user->name,
-                'email' => $order->billing_email ?? $order->user->email,
-                'phone' => $order->billing_phone ?? '',
-            ],
-        ];
-
-        if ($enabledPayments) {
-            $params['enabled_payments'] = $enabledPayments;
-        }
-
-        $snap = Snap::createTransaction($params);
-
-        return response()->json([
-            'payment_url' => $snap->redirect_url,
-        ]);
-    }
-
-    /**
-     * Checkout & buat order
+     * 🔹 Checkout - buat order baru
      */
     public function checkout(Request $request)
     {
@@ -150,7 +43,6 @@ class OrderController extends Controller
             return response()->json(['message' => 'Cart is empty'], 400);
         }
 
-        // Hitung total price sebelum buat order
         $total = $cartItems->sum(fn($item) => $item->paket->price * $item->quantity);
 
         $order = Order::create([
@@ -165,7 +57,6 @@ class OrderController extends Controller
             'billing_address' => $request->billing_address,
         ]);
 
-        // Simpan setiap item di order_items dengan subtotal
         foreach ($cartItems as $item) {
             OrderItem::create([
                 'order_id' => $order->id,
@@ -176,42 +67,246 @@ class OrderController extends Controller
             ]);
         }
 
-        $order->load('user', 'items.paketTour');
+        // kosongkan cart setelah checkout
+        Cart::where('user_id', $user->id)->delete();
 
-        // Kirim email invoice
+        // kirim invoice via email
         Mail::to($order->billing_email)->send(new OrderInvoiceMail($order));
 
         return response()->json([
-            'message' => 'Checkout berhasil. Cek email untuk invoice.',
+            'message' => 'Checkout berhasil, silakan lanjut ke pembayaran.',
             'order' => $order,
         ]);
     }
 
     /**
-     * Ambil semua order milik user
+     * 🔹 Buat pembayaran Xendit Invoice
      */
-    public function myOrders(Request $request)
+    public function payWithXendit($orderCode)
     {
-        $orders = Order::where('user_id', $request->user()->id)
-            ->with(['items.paketTour', 'payment'])
-            ->latest()
-            ->get();
+        $order = Order::with('user')->where('order_code', $orderCode)->firstOrFail();
 
-        return response()->json($orders);
+        try {
+            $params = [
+                'external_id' => $order->order_code,
+                'payer_email' => $order->billing_email,
+                'description' => 'Pembayaran untuk order ' . $order->order_code,
+                'amount' => (int) $order->total_price,
+                'invoice_duration' => 86400, // 1 hari
+                'success_redirect_url' => env('FRONTEND_URL') . '/users/dashboard?status=success&order=' . $order->order_code,
+                'failure_redirect_url' => env('FRONTEND_URL') . '/users/dashboard?status=failed&order=' . $order->order_code,
+            ];
+
+            $invoice = \Xendit\Invoice::create($params);
+
+            // simpan referensi invoice
+            Payment::updateOrCreate(
+                ['order_id' => $order->id],
+                [
+                    'payment_gateway' => 'xendit',
+                    'payment_id' => $invoice['id'],
+                    'amount' => $invoice['amount'],
+                    'status' => $invoice['status'],
+                    'payload' => json_encode($invoice),
+                ]
+            );
+
+            $order->update([
+                'payment_reference' => $invoice['id'],
+                'status' => 'pending',
+            ]);
+
+            return response()->json([
+                'message' => 'Invoice Xendit berhasil dibuat.',
+                'invoice_url' => $invoice['invoice_url'],
+                'invoice' => $invoice,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Xendit Invoice Error:', ['message' => $e->getMessage()]);
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 
     /**
-     * Ambil semua order (untuk admin)
+     * 🔹 Callback Xendit untuk singkron notifikasi
      */
-    public function allOrders()
+    public function xenditCallback(Request $request)
     {
-        $orders = Order::with(['user', 'items.paketTour', 'payment'])->latest()->get();
+        try {
+            $payload = $request->all();
+            Log::info('Xendit Callback Received:', $payload);
 
-        $data = $orders->map(function ($order) {
+            $order = Order::where('order_code', $payload['external_id'])->first();
+            if (!$order) {
+                return response()->json(['message' => 'Order not found'], 404);
+            }
+
+            $status = match ($payload['status']) {
+                'PAID' => 'settlement',
+                'PENDING' => 'pending',
+                'EXPIRED' => 'expired',
+                'FAILED' => 'failed',
+                default => $order->status,
+            };
+
+            $order->update(['status' => $status]);
+
+            Payment::updateOrCreate(
+                ['order_id' => $order->id],
+                [
+                    'payment_gateway' => 'xendit',
+                    'payment_id' => $payload['id'] ?? null,
+                    'amount' => $payload['amount'] ?? $order->total_price,
+                    'status' => $status,
+                    'payload' => json_encode($payload),
+                ]
+            );
+
+            if ($status === 'settlement') {
+                Mail::to($order->billing_email)->send(new PaymentReceiptMail($order));
+            }
+
+            return response()->json(['message' => 'Callback processed successfully']);
+        } catch (\Exception $e) {
+            Log::error('Xendit Callback Error:', ['error' => $e->getMessage()]);
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * 🔹 Konfirmasi pembayaran manual xendit
+     */
+    public function confirmPayment($orderCode)
+    {
+        $order = Order::where('order_code', $orderCode)->firstOrFail();
+
+        $order->update(['status' => 'settlement']);
+
+        Mail::to($order->billing_email)->send(new PaymentReceiptMail($order));
+
+        return response()->json([
+            'message' => 'Payment confirmed successfully',
+            'order' => $order,
+        ]);
+    }
+
+    /**
+     * 🔹 List semua order user
+     */
+    // public function myOrders(Request $request)
+    // {
+    //     $orders = Order::where('user_id', $request->user()->id)
+    //         ->with(['items.paketTour', 'payment'])
+    //         ->latest()
+    //         ->get();
+
+    //     return response()->json($orders);
+    // }
+    public function myOrders(Request $request)
+{
+    $orders = Order::where('user_id', $request->user()->id)
+        ->with(['items.paketTour', 'payment'])
+        ->orderBy('updated_at', 'desc')
+        ->get();
+
+    return response()->json([
+        'total_orders' => $orders->count(),
+        'pending' => $orders->where('status', 'pending')->count(),
+        'paid' => $orders->whereIn('status', ['paid', 'settlement'])->count(),
+        'orders' => $orders
+    ]);
+}
+
+
+
+
+    /**
+     * 🔹 Semua order (Admin)
+     */
+    // public function allOrders()
+    // {
+    //     $orders = Order::with(['user', 'items.paketTour', 'payment'])->latest()->get();
+
+    //     $data = $orders->map(function ($order) {
+    //         return [
+    //             'order_code' => $order->order_code,
+    //             'user_name' => $order->user->name,
+    //             'user_email' => $order->user->email,
+    //             'billing_name' => $order->billing_name,
+    //             'billing_phone' => $order->billing_phone,
+    //             'billing_address' => $order->billing_address,
+    //             'status' => $order->status,
+    //             'total_price' => $order->total_price,
+    //             'payment_status' => $order->payment->status ?? 'pending',
+    //             'created_at' => $order->created_at->format('Y-m-d H:i:s'),
+    //             'items' => $order->items->map(fn($i) => [
+    //                 'paket_title' => $i->paketTour->title,
+    //                 'quantity' => $i->quantity,
+    //                 'price' => (float) $i->price,
+    //                 'subtotal' => (float) $i->subtotal,
+    //             ]),
+    //         ];
+    //     });
+
+    //     return response()->json(['orders' => $data]);
+    // }
+
+    // get data order pada sisi admin
+    // public function allOrders()
+    // {
+    //     $orders = Order::with(['user', 'items.paketTour', 'payment'])
+    //         ->latest()
+    //         ->get();
+
+    //     // Buat data utama order
+    //     $data = $orders->map(function ($order) {
+    //         return [
+    //             'order_code' => $order->order_code,
+    //             'user_name' => $order->user->name ?? '-',
+    //             'user_email' => $order->user->email ?? '-',
+    //             'billing_name' => $order->billing_name,
+    //             'billing_phone' => $order->billing_phone,
+    //             'billing_address' => $order->billing_address,
+    //             'status' => $order->status,
+    //             'total_price' => $order->total_price,
+    //             'payment_status' => $order->payment->status ?? 'pending',
+    //             'created_at' => $order->created_at->format('Y-m-d H:i:s'),
+    //             'items' => $order->items->map(fn($i) => [
+    //                 'paket_title' => $i->paketTour->title ?? '-',
+    //                 'quantity' => $i->quantity,
+    //                 'price' => (float) $i->price,
+    //                 'subtotal' => (float) $i->subtotal,
+    //             ]),
+    //         ];
+    //     });
+
+    //     // 🔹 Hitung total tiap status
+    //     $totalOrders = $orders->count();
+    //     $pending = $orders->where('status', 'pending')->count();
+    //     $paid = $orders->where('status', 'paid')->count();
+    //     $settlement = $orders->where('status', 'settlement')->count();
+
+    //     // 🔹 Return JSON lengkap
+    //     return response()->json([
+    //         'total_orders' => $totalOrders,
+    //         'pending' => $pending,
+    //         'paid' => $paid,
+    //         'settlement' => $settlement,
+    //         'orders' => $data,
+    //     ]);
+    // }
+
+    public function  allOrders()
+    {
+        $orders = Order::with(['user', 'items.paketTour', 'payment'])
+            ->orderBy('created_at', 'desc')
+            ->paginate(10);
+
+        $mappedOrders = $orders->map(function ($order) {
             return [
                 'order_code' => $order->order_code,
-                'user_name' => $order->user->name,
-                'user_email' => $order->user->email,
+                'user_name' => $order->user->name ?? '-',
+                'user_email' => $order->user->email ?? '-',
                 'billing_name' => $order->billing_name,
                 'billing_phone' => $order->billing_phone,
                 'billing_address' => $order->billing_address,
@@ -219,33 +314,28 @@ class OrderController extends Controller
                 'total_price' => $order->total_price,
                 'payment_status' => $order->payment->status ?? 'pending',
                 'created_at' => $order->created_at->format('Y-m-d H:i:s'),
-                'items' => $order->items->map(function ($item) {
-                    return [
-                        'paket_title' => $item->paketTour->title,
-                        'quantity' => $item->quantity,
-                        'price' => (float) $item->price,
-                        'subtotal' => (float) $item->subtotal,
-                    ];
-                }),
+                'items' => $order->items->map(fn($i) => [
+                    'paket_title' => $i->paketTour->title ?? '-',
+                    'quantity' => $i->quantity,
+                    'price' => (float) $i->price,
+                    'subtotal' => (float) $i->subtotal,
+                ]),
             ];
         });
 
-        return response()->json(['orders' => $data]);
-    }
-
-    public function confirmPayment($orderCode)
-    {
-        $order = Order::where('order_code', $orderCode)->firstOrFail();
-
-        // Update status order menjadi 'settlement' (atau 'paid' sesuai enum kamu)
-        $order->update(['status' => 'settlement']);
-
-        // Kirim email konfirmasi pembayaran
-        Mail::to($order->billing_email)->send(new \App\Mail\PaymentReceiptMail($order));
-
         return response()->json([
-            'message' => 'Payment confirmed successfully',
-            'order' => $order
+            'orders' => $mappedOrders,
+            'pagination' => [
+                'current_page' => $orders->currentPage(),
+                'last_page' => $orders->lastPage(),
+                'total' => $orders->total(),
+            ],
+            'summary' => [
+                'total_orders' => Order::count(),
+                'pending' => Order::where('status', 'pending')->count(),
+                'paid' => Order::where('status', 'paid')->count(),
+                'settlement' => Order::where('status', 'settlement')->count(),
+            ],
         ]);
     }
 }

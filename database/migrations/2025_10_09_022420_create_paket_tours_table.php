@@ -21,6 +21,14 @@ return new class extends Migration
     $table->string('location')->nullable();
     $table->string('image')->nullable();
     $table->boolean('active')->default(true);
+
+    // field baru
+    $table->integer('duration_days')->default(5);
+    $table->integer('duration_nights')->default(4);
+    $table->integer('feature_duration_days')->default(5); // featured otomatis selama 5 hari
+    $table->integer('minimum_age')->default(0);
+    $table->string('pickup_location')->nullable();
+
     $table->timestamps();
 });
 

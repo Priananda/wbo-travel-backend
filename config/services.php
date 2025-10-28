@@ -19,6 +19,10 @@ return [
         'merchant_key' => env('DOKU_MERCHANT_KEY'),
         'notify_url' => env('DOKU_NOTIFY_URL'),
     ],
+    'xendit' => [
+        'secret_key' => env('XENDIT_SECRET_KEY'),
+    ],
+
 
 
     'mailgun' => [

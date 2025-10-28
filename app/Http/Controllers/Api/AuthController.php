@@ -3,15 +3,22 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\AuthService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
-use App\Models\User;
+use Illuminate\Http\JsonResponse;
 
 class AuthController extends Controller
 {
+    protected AuthService $authService;
+
+    public function __construct(AuthService $authService)
+    {
+        $this->authService = $authService;
+    }
+
+
     // Register
-    public function register(Request $request)
+    public function register(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'name'     => ['required', 'string', 'max:100'],
@@ -19,64 +26,44 @@ class AuthController extends Controller
             'password' => ['required', 'min:6'],
         ]);
 
-        $user = User::create([
-            'name'     => $validated['name'],
-            'email'    => $validated['email'],
-            'password' => Hash::make($validated['password']),
-            'role'     => 'user',
-        ]);
+        $data = $this->authService->register($validated);
 
-        $token = $user->createToken('auth_token')->plainTextToken;
-
-        return response()->json([
-            'message' => 'User registered successfully',
-            'user'    => $user,
-            'token'   => $token,
-        ], 201);
+        return response()->json($data, 201);
     }
 
     // Login
-    public function login(Request $request)
+    public function login(Request $request): JsonResponse
     {
-        $credentials = $request->validate([
+        $validated = $request->validate([
             'email'    => ['required', 'email'],
             'password' => ['required'],
         ]);
 
-        $user = User::where('email', $credentials['email'])->first();
+        $data = $this->authService->login($validated);
 
-        if (! $user || ! Hash::check($credentials['password'], $user->password)) {
-            throw ValidationException::withMessages([
-                'email' => 'Invalid credentials provided.',
-            ]);
-        }
-
-        $user->tokens()->delete();
-
-        $token = $user->createToken('auth_token')->plainTextToken;
-
-        return response()->json([
-            'message' => 'Login successful',
-            'user'    => $user,
-            'token'   => $token,
-        ]);
+        return response()->json($data);
     }
 
-    // Me akun
-    public function me(Request $request)
+    // Me
+    public function me(Request $request): JsonResponse
     {
-        return response()->json([
-            'user' => $request->user(),
-        ]);
+        return response()->json(['user' => $request->user()]);
     }
 
     // Logout
-    public function logout(Request $request)
+    public function logout(Request $request): JsonResponse
     {
-        $request->user()->currentAccessToken()->delete();
+        $this->authService->logout($request->user());
+        return response()->json(['message' => 'Logout successful']);
+    }
 
-        return response()->json([
-            'message' => 'Logout successful',
-        ]);
+    // Google Login
+    public function googleLogin(Request $request): JsonResponse
+    {
+        $request->validate(['token' => 'required|string']);
+
+        $data = $this->authService->googleLogin($request->token);
+
+        return response()->json($data);
     }
 }

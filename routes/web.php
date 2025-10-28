@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Models\Order;
 
 /*
 |--------------------------------------------------------------------------
@@ -15,4 +16,16 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
+});
+
+
+Route::get('/invoice/{orderCode}', function ($orderCode) {
+    $order = Order::with('items.paketTour')->where('order_code', $orderCode)->firstOrFail();
+    return view('emails.invoice', compact('order'));
+});
+
+
+Route::get('/receipt/{orderCode}', function ($orderCode) {
+    $order = Order::with('items.paketTour', 'user')->where('order_code', $orderCode)->firstOrFail();
+    return view('emails.receipt', compact('order'));
 });

@@ -14,7 +14,8 @@ use App\Http\Controllers\Api\{
     OrderController,
     BlogController,
     AdminController,
-    SuperAdminController
+    SuperAdminController,
+    CommentController
 };
 
 // Public Routes
@@ -22,13 +23,29 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
 Route::get('/paket-tours', [PaketTourController::class, 'index']);
-Route::get('/paket-tours/{id}', [PaketTourController::class, 'show']);
+// Route::get('/paket-tours/{id}', [PaketTourController::class, 'show']);
+Route::get('/paket-tours/{slug}', [PaketTourController::class, 'show']);
 
+// Route::get('/blogs', [BlogController::class, 'index']);
+// Route::get('/blogs/{slug}', [BlogController::class, 'show']);
+// // Route::get('/blogs/{id}', [BlogController::class, 'show']);
+// Route::get('/blogs/{id}/comments', [CommentController::class, 'index']);
+// Route::get('/comments', [CommentController::class, 'indexAll']);
+
+// 🔹 Public blog routes
 Route::get('/blogs', [BlogController::class, 'index']);
-Route::get('/blogs/{id}', [BlogController::class, 'show']);
+Route::get('/blogs/slug/{slug}', [BlogController::class, 'showBySlug']);
+Route::get('/blogs/{id}', [BlogController::class, 'show']); // tetap ada untuk admin/dashboard
 
-Route::get('/user/pay/{orderCode}', [OrderController::class, 'payWithMidtrans']);
-Route::post('/midtrans/callback', [OrderController::class, 'midtransCallback']);
+Route::get('/blogs/{id}/comments', [CommentController::class, 'index']);
+Route::get('/comments', [CommentController::class, 'indexAll']);
+// Route::get('/user/pay/{orderCode}', [OrderController::class, 'payWithMidtrans']);
+// Route::post('/midtrans/callback', [OrderController::class, 'midtransCallback']);
+Route::get('/pay-xendit/{orderCode}', [OrderController::class, 'payWithXendit']);
+Route::post('/xendit/callback', [OrderController::class, 'xenditCallback']);
+
+// Login Via Google
+Route::post('/auth/google', [AuthController::class, 'googleLogin']);
 
 // Sanctum Protected Routes
 Route::middleware('auth:sanctum')->group(function () {
@@ -45,10 +62,17 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/cart', [CartController::class, 'index']);
         Route::delete('/cart/remove/{id}', [CartController::class, 'remove']);
         Route::delete('/cart/clear', [CartController::class, 'clear']);
+        Route::delete('/cart/destroy/{cartId}', [CartController::class, 'destroy']);
         Route::post('/checkout', [OrderController::class, 'checkout']);
         Route::get('/payment/confirm/{orderCode}', [OrderController::class, 'confirmPayment']);
         Route::get('/my-orders', [OrderController::class, 'myOrders']);
+
+        Route::post('/comments', [CommentController::class, 'store']);
     });
+
+
+    //Komentar
+
 
     /*
     |--------------------------------------------------------------------------
@@ -65,13 +89,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/paket-tours/{id}', [PaketTourController::class, 'destroy']);
 
         // Blogs
+        // Route::apiResource('blogs', App\Http\Controllers\Api\BlogController::class);
         Route::get('/blogs', [BlogController::class, 'index']);
+        Route::get('/blogs/{id}', [BlogController::class, 'show']);
         Route::post('/blogs', [BlogController::class, 'store']);
         Route::put('/blogs/{id}', [BlogController::class, 'update']);
         Route::delete('/blogs/{id}', [BlogController::class, 'destroy']);
 
         // Orders
         Route::get('/orders', [OrderController::class, 'allOrders']);
+        Route::delete('/comments/{id}', [CommentController::class, 'destroy']);
     });
 
 
