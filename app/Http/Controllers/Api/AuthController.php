@@ -16,6 +16,7 @@ class AuthController extends Controller
         $this->authService = $authService;
     }
 
+
     // Register
     public function register(Request $request): JsonResponse
     {
