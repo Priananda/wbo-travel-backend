@@ -24,8 +24,61 @@ class OrderController extends Controller
     }
 
     /**
-     * 🔹 Checkout - buat order baru
+     *  Checkout - buat order baru
      */
+    // public function checkout(Request $request)
+    // {
+    //     $request->validate([
+    //         'billing_name' => 'required|string|max:100',
+    //         'billing_email' => 'required|email',
+    //         'billing_phone' => 'required|string|max:20',
+    //         'billing_address' => 'required|string|max:255',
+    //         'payment_method' => 'required|string',
+    //     ]);
+
+    //     $user = $request->user();
+    //     $cartItems = Cart::with('paket')->where('user_id', $user->id)->get();
+
+    //     if ($cartItems->isEmpty()) {
+    //         return response()->json(['message' => 'Cart is empty'], 400);
+    //     }
+
+    //     $total = $cartItems->sum(fn($item) => $item->paket->price * $item->quantity);
+
+    //     $order = Order::create([
+    //         'user_id' => $user->id,
+    //         'order_code' => 'ORD-' . strtoupper(Str::random(8)),
+    //         'total_price' => $total,
+    //         'status' => 'pending',
+    //         'payment_method' => $request->payment_method,
+    //         'billing_name' => $request->billing_name,
+    //         'billing_email' => $request->billing_email,
+    //         'billing_phone' => $request->billing_phone,
+    //         'billing_address' => $request->billing_address,
+    //     ]);
+
+    //     foreach ($cartItems as $item) {
+    //         OrderItem::create([
+    //             'order_id' => $order->id,
+    //             'paket_tour_id' => $item->paket_tour_id,
+    //             'quantity' => $item->quantity,
+    //             'price' => $item->paket->price,
+    //             'subtotal' => $item->paket->price * $item->quantity,
+    //         ]);
+    //     }
+
+    //     // kosongkan cart setelah checkout
+    //     Cart::where('user_id', $user->id)->delete();
+
+    //     // kirim invoice via email
+    //     Mail::to($order->billing_email)->send(new OrderInvoiceMail($order));
+
+    //     return response()->json([
+    //         'message' => 'Checkout berhasil, silakan lanjut ke pembayaran.',
+    //         'order' => $order,
+    //     ]);
+    // }
+
     public function checkout(Request $request)
     {
         $request->validate([
@@ -34,6 +87,10 @@ class OrderController extends Controller
             'billing_phone' => 'required|string|max:20',
             'billing_address' => 'required|string|max:255',
             'payment_method' => 'required|string',
+            'check_in' => 'required|date',
+            'check_out' => 'required|date|after_or_equal:check_in',
+            'guest' => 'required|integer|min:1',
+            'extra_info' => 'nullable|string',
         ]);
 
         $user = $request->user();
@@ -55,6 +112,10 @@ class OrderController extends Controller
             'billing_email' => $request->billing_email,
             'billing_phone' => $request->billing_phone,
             'billing_address' => $request->billing_address,
+            'check_in' => $request->check_in,
+            'check_out' => $request->check_out,
+            'guest' => $request->guest,
+            'extra_info' => $request->extra_info,
         ]);
 
         foreach ($cartItems as $item) {
@@ -67,10 +128,8 @@ class OrderController extends Controller
             ]);
         }
 
-        // kosongkan cart setelah checkout
         Cart::where('user_id', $user->id)->delete();
 
-        // kirim invoice via email
         Mail::to($order->billing_email)->send(new OrderInvoiceMail($order));
 
         return response()->json([
@@ -79,8 +138,9 @@ class OrderController extends Controller
         ]);
     }
 
+
     /**
-     * 🔹 Buat pembayaran Xendit Invoice
+     * Buat pembayaran Xendit Invoice
      */
     public function payWithXendit($orderCode)
     {
@@ -128,7 +188,7 @@ class OrderController extends Controller
     }
 
     /**
-     * 🔹 Callback Xendit untuk singkron notifikasi
+     *  Callback Xendit untuk singkron notifikasi
      */
     public function xenditCallback(Request $request)
     {
@@ -174,7 +234,7 @@ class OrderController extends Controller
     }
 
     /**
-     * 🔹 Konfirmasi pembayaran manual xendit
+     * Konfirmasi pembayaran manual pakai xendit
      */
     public function confirmPayment($orderCode)
     {
@@ -190,18 +250,8 @@ class OrderController extends Controller
         ]);
     }
 
-    /**
-     * 🔹 List semua order user
-     */
-    // public function myOrders(Request $request)
-    // {
-    //     $orders = Order::where('user_id', $request->user()->id)
-    //         ->with(['items.paketTour', 'payment'])
-    //         ->latest()
-    //         ->get();
 
-    //     return response()->json($orders);
-    // }
+    // Lihat order pelanggan (user)
     public function myOrders(Request $request)
 {
     $orders = Order::where('user_id', $request->user()->id)
@@ -217,85 +267,7 @@ class OrderController extends Controller
     ]);
 }
 
-
-
-
-    /**
-     * 🔹 Semua order (Admin)
-     */
-    // public function allOrders()
-    // {
-    //     $orders = Order::with(['user', 'items.paketTour', 'payment'])->latest()->get();
-
-    //     $data = $orders->map(function ($order) {
-    //         return [
-    //             'order_code' => $order->order_code,
-    //             'user_name' => $order->user->name,
-    //             'user_email' => $order->user->email,
-    //             'billing_name' => $order->billing_name,
-    //             'billing_phone' => $order->billing_phone,
-    //             'billing_address' => $order->billing_address,
-    //             'status' => $order->status,
-    //             'total_price' => $order->total_price,
-    //             'payment_status' => $order->payment->status ?? 'pending',
-    //             'created_at' => $order->created_at->format('Y-m-d H:i:s'),
-    //             'items' => $order->items->map(fn($i) => [
-    //                 'paket_title' => $i->paketTour->title,
-    //                 'quantity' => $i->quantity,
-    //                 'price' => (float) $i->price,
-    //                 'subtotal' => (float) $i->subtotal,
-    //             ]),
-    //         ];
-    //     });
-
-    //     return response()->json(['orders' => $data]);
-    // }
-
-    // get data order pada sisi admin
-    // public function allOrders()
-    // {
-    //     $orders = Order::with(['user', 'items.paketTour', 'payment'])
-    //         ->latest()
-    //         ->get();
-
-    //     // Buat data utama order
-    //     $data = $orders->map(function ($order) {
-    //         return [
-    //             'order_code' => $order->order_code,
-    //             'user_name' => $order->user->name ?? '-',
-    //             'user_email' => $order->user->email ?? '-',
-    //             'billing_name' => $order->billing_name,
-    //             'billing_phone' => $order->billing_phone,
-    //             'billing_address' => $order->billing_address,
-    //             'status' => $order->status,
-    //             'total_price' => $order->total_price,
-    //             'payment_status' => $order->payment->status ?? 'pending',
-    //             'created_at' => $order->created_at->format('Y-m-d H:i:s'),
-    //             'items' => $order->items->map(fn($i) => [
-    //                 'paket_title' => $i->paketTour->title ?? '-',
-    //                 'quantity' => $i->quantity,
-    //                 'price' => (float) $i->price,
-    //                 'subtotal' => (float) $i->subtotal,
-    //             ]),
-    //         ];
-    //     });
-
-    //     // 🔹 Hitung total tiap status
-    //     $totalOrders = $orders->count();
-    //     $pending = $orders->where('status', 'pending')->count();
-    //     $paid = $orders->where('status', 'paid')->count();
-    //     $settlement = $orders->where('status', 'settlement')->count();
-
-    //     // 🔹 Return JSON lengkap
-    //     return response()->json([
-    //         'total_orders' => $totalOrders,
-    //         'pending' => $pending,
-    //         'paid' => $paid,
-    //         'settlement' => $settlement,
-    //         'orders' => $data,
-    //     ]);
-    // }
-
+    // Lihat order pelanggan (admin)
     public function  allOrders()
     {
         $orders = Order::with(['user', 'items.paketTour', 'payment'])
@@ -310,6 +282,10 @@ class OrderController extends Controller
                 'billing_name' => $order->billing_name,
                 'billing_phone' => $order->billing_phone,
                 'billing_address' => $order->billing_address,
+                'check_in' => $order->check_in,
+                'check_out' => $order->check_out,
+                'guest' => $order->guest,
+                'extra_info' => $order->extra_info,
                 'status' => $order->status,
                 'total_price' => $order->total_price,
                 'payment_status' => $order->payment->status ?? 'pending',

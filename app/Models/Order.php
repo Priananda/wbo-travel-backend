@@ -17,7 +17,11 @@ class Order extends Model
         'billing_name',
         'billing_email',
         'billing_phone',
-        'billing_address'
+        'billing_address',
+        'check_in',
+        'check_out',
+        'guest',
+        'extra_info',
     ];
 
     public function items()
