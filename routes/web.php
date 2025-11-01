@@ -19,13 +19,13 @@ Route::get('/', function () {
 });
 
 
-Route::get('/invoice/{orderCode}', function ($orderCode) {
-    $order = Order::with('items.paketTour')->where('order_code', $orderCode)->firstOrFail();
-    return view('emails.invoice', compact('order'));
-});
+// Route::get('/invoice/{orderCode}', function ($orderCode) {
+//     $order = Order::with('items.paketTour')->where('order_code', $orderCode)->firstOrFail();
+//     return view('emails.invoice', compact('order'));
+// });
 
 
-Route::get('/receipt/{orderCode}', function ($orderCode) {
-    $order = Order::with('items.paketTour', 'user')->where('order_code', $orderCode)->firstOrFail();
-    return view('emails.receipt', compact('order'));
-});
+// Route::get('/receipt/{orderCode}', function ($orderCode) {
+//     $order = Order::with('items.paketTour', 'user')->where('order_code', $orderCode)->firstOrFail();
+//     return view('emails.receipt', compact('order'));
+// });

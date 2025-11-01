@@ -54,7 +54,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | 🟡 USER ROUTES
+    | USER ROUTES
     |--------------------------------------------------------------------------
     */
     Route::prefix('user')->group(function () {
@@ -76,7 +76,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | 🔵 ADMIN ROUTES
+    |  ADMIN ROUTES
     |--------------------------------------------------------------------------
     */
     Route::middleware('role:admin')->prefix('admin')->group(function () {
@@ -104,7 +104,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | 🔴 SUPER ADMIN ROUTES
+    | SUPER ADMIN ROUTES
     |--------------------------------------------------------------------------
     */
     Route::middleware('role:super_admin')->prefix('super-admin')->group(function () {
