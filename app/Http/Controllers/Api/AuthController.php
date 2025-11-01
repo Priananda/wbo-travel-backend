@@ -7,6 +7,8 @@ use App\Services\AuthService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
+// 'recaptcha_token' => ['required', 'string'],
+// 'recaptcha_token'  => ['required', 'string'],
 class AuthController extends Controller
 {
     protected AuthService $authService;

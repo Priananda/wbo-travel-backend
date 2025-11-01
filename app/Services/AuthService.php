@@ -8,6 +8,13 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
 
+// if (! $this->verifyRecaptcha($data['recaptcha_token'])) {
+//     throw ValidationException::withMessages(['recaptcha' => 'Invalid reCAPTCHA verification.']);
+// }
+
+// if (! $this->verifyRecaptcha($credentials['recaptcha_token'])) {
+//     throw ValidationException::withMessages(['recaptcha' => 'Invalid reCAPTCHA verification.']);
+// }
 class AuthService
 {
     private function verifyRecaptcha(string $token): bool
